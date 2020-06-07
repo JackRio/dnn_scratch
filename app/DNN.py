@@ -1,12 +1,11 @@
 import numpy as np
 from app.utils_dnn import load_data, clean_data, relu, sigmoid, sigmoid_backward, relu_backward
 
-np.random.seed(1)
 train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.05, epoch=2500):
+    def __init__(self, learning_rate=0.005, epoch=2500):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
@@ -16,11 +15,17 @@ class DNN:
         self.epoch = epoch
 
     def initialize_param(self):
+        np.random.seed(1)
         parameters = {}
         for layer in range(1, len(self.layer_dims)):
-            parameters['W' + str(layer)] = np.random.randn(self.layer_dims[layer],
-                                                           self.layer_dims[layer - 1]) * 0.01
+            parameters['W' + str(layer)] = np.random.randn(
+                self.layer_dims[layer],
+                self.layer_dims[layer - 1]) / np.sqrt(self.layer_dims[layer - 1])  # * 0.01
             parameters['b' + str(layer)] = np.zeros((self.layer_dims[layer], 1))
+
+            assert (parameters['W' + str(layer)].shape == (
+            self.layer_dims[layer], self.layer_dims[layer - 1]))
+            assert (parameters['b' + str(layer)].shape == (self.layer_dims[layer], 1))
         return parameters
 
     @staticmethod
@@ -152,10 +157,10 @@ class DNN:
 
 if __name__ == "__main__":
     dnn = DNN()
-    parameters = dnn.fit()
+    model_params = dnn.fit()
 
     print("Train Accuracy")
-    dnn.predict(dnn.train_x, dnn.train_y, parameters)
+    dnn.predict(dnn.train_x, dnn.train_y, model_params)
 
     print("Test Accuracy")
-    dnn.predict(dnn.test_x, dnn.test_y, parameters)
+    dnn.predict(dnn.test_x, dnn.test_y, model_params)
