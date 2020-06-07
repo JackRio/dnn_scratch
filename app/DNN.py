@@ -6,7 +6,7 @@ train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.0075, epoch=3000):
+    def __init__(self, learning_rate=0.05, epoch=2500):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
@@ -42,17 +42,17 @@ class DNN:
         cache = (linear_cache, activation_cache)
         return A, cache
 
-    def dnn_forward_prop(self, parameters):
-        A = self.train_x
+    def dnn_forward_prop(self, X, param):
+        A = X
         caches = []
 
         for layer in range(1, (len(self.layer_dims) - 1)):
             A_prev = A
-            A, cache = self.linear_activation_forward(A_prev, parameters["W" + str(layer)],
-                                                      parameters["b" + str(layer)], "relu")
+            A, cache = self.linear_activation_forward(A_prev, param["W" + str(layer)],
+                                                      param["b" + str(layer)], "relu")
             caches.append(cache)
-        AL, cache = self.linear_activation_forward(A, parameters["W" + str(layer + 1)],
-                                                   parameters["b" + str(layer + 1)], "sigmoid")
+        AL, cache = self.linear_activation_forward(A, param["W" + str(layer + 1)],
+                                                   param["b" + str(layer + 1)], "sigmoid")
         caches.append(cache)
         return AL, caches
 
@@ -94,7 +94,7 @@ class DNN:
         L = len(caches)
         Y = Y.reshape(AL.shape)
 
-        dAL = - np.divide(Y, AL) - np.divide((1 - Y), (1 - AL))
+        dAL = - (np.divide(Y, AL) - np.divide((1 - Y), (1 - AL)))
         current_cache = caches[L - 1]
         grads["dA" + str(L - 1)], grads["dW" + str(L)], grads["db" + str(L)] = self.backword_prop(
             dAL, current_cache, "sigmoid")
@@ -114,11 +114,11 @@ class DNN:
             param["b" + str(layer + 1)] -= grads["db" + str(layer + 1)] * self.learning_rate
         return param
 
-    def model(self):
+    def fit(self):
         parameters = self.initialize_param()
 
         for i in range(self.epoch):
-            AL, caches = self.dnn_forward_prop(parameters)
+            AL, caches = self.dnn_forward_prop(self.train_x, parameters)
 
             cost = self.compute_cost(AL, self.train_y)
 
@@ -126,11 +126,36 @@ class DNN:
 
             param = self.update_parameters(parameters, grads)
 
-            return param
+            if not (i % 100):
+                print("Cost", cost)
+
+        return param
+
+    def predict(self, X, y, param):
+        m = X.shape[1]
+        p = np.zeros((1, m))
+
+        # Forward propagation
+        probas, caches = self.dnn_forward_prop(X, param)
+
+        # convert probas to 0/1 predictions
+        for i in range(0, probas.shape[1]):
+            if probas[0, i] > 0.5:
+                p[0, i] = 1
+            else:
+                p[0, i] = 0
+
+        print("Accuracy: " + str(np.sum((p == y) / m)))
+
+        return p
 
 
 if __name__ == "__main__":
     dnn = DNN()
-    parameters = dnn.model()
-    for key, val in parameters.items():
-        print(f"{key}", val.shape)
+    parameters = dnn.fit()
+
+    print("Train Accuracy")
+    dnn.predict(dnn.train_x, dnn.train_y, parameters)
+
+    print("Test Accuracy")
+    dnn.predict(dnn.test_x, dnn.test_y, parameters)
