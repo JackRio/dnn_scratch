@@ -5,7 +5,7 @@ train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.005, epoch=2000, lamda=0.9):
+    def __init__(self, learning_rate=0.005, epoch=2000, lamda=0.1):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
