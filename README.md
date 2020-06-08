@@ -9,7 +9,7 @@ Features yet to be implemented.
   1. Generalised load_dataset Function
   2. Weights Initialization
   3. Normalizing Input
-  4. Regularisation
+  4. Cost Regularisation (Done)
   5. Droput Method
   6. Other Regularisation
   7. Gradient Check

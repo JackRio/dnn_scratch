@@ -5,12 +5,12 @@ train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.005, epoch=2000, lamda=0.1):
+    def __init__(self, learning_rate=0.075, epoch=1500, lamda=0.7, layer_dims=None):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
         # 4-layer model (Input + 3 Hidden + Output)
-        self.layer_dims = [self.train_x.shape[0], 20, 10, 5, 1]
+        self.layer_dims = [self.train_x.shape[0]] + layer_dims
 
         self.learning_rate = learning_rate
         self.epoch = epoch
@@ -144,7 +144,7 @@ class DNN:
             parameters = self.update_parameters(parameters, grads)
 
             if not (i % 100):
-                print("Cost", cost)
+                print(f"Cost after {i} iteration", cost)
 
         return parameters
 
@@ -168,7 +168,7 @@ class DNN:
 
 
 if __name__ == "__main__":
-    dnn = DNN()
+    dnn = DNN(epoch=1500, learning_rate=0.01, lamda=0.01, layer_dims=[20, 10, 7, 1])
     model_params = dnn.fit()
 
     print("Train Accuracy")
