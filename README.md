@@ -1,7 +1,8 @@
 # dnn_scratch
 Implementation of Deep neural network from scratch. Following the course by DeepLearning.ai and NNFS here is the implmentation for building your own Neural Network using Vanilla Python. 
 
-Resources for understanding concepts in DNN 
+Resources for understanding concepts in DNN
+
 https://docs.google.com/document/d/1lM-hM5fFjPF2nZFn4iVkrCymGNPgklHgyXt1vvfqlLo/edit?usp=sharing
 
 Features yet to be implemented.
