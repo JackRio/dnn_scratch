@@ -5,14 +5,16 @@ train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.005, epoch=2500):
+    def __init__(self, learning_rate=0.005, epoch=2500, lamda=0.7):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
         # 4-layer model (Input + 3 Hidden + Output)
         self.layer_dims = [self.train_x.shape[0], 20, 10, 5, 1]
+
         self.learning_rate = learning_rate
         self.epoch = epoch
+        self.lamda = lamda
 
     def initialize_param(self):
         np.random.seed(1)
@@ -24,7 +26,7 @@ class DNN:
             parameters['b' + str(layer)] = np.zeros((self.layer_dims[layer], 1))
 
             assert (parameters['W' + str(layer)].shape == (
-            self.layer_dims[layer], self.layer_dims[layer - 1]))
+                self.layer_dims[layer], self.layer_dims[layer - 1]))
             assert (parameters['b' + str(layer)].shape == (self.layer_dims[layer], 1))
         return parameters
 
@@ -70,18 +72,28 @@ class DNN:
 
         return cost
 
-    @staticmethod
-    def linear_backword(dZ, cache):
+    def compute_cost_with_regularization(self, param, AL, Y):
+        m = Y.shape[1]
+        L = len(param) // 2
+        regularize_cost = 0.00
+        for layer in range(L):
+            regularize_cost += np.sum(np.square(param["W" + str(layer + 1)]))
+        regularize_cost *= (self.lamda / (2 * m))
+        cross_entropy_cost = self.compute_cost(AL, Y)
+
+        return cross_entropy_cost + regularize_cost
+
+    def linear_backward(self, dZ, cache):
         A_prev, W, b = cache
         m = A_prev.shape[1]
 
-        dW = (1 / m) * np.dot(dZ, A_prev.T)
-        db = (1 / m) * np.sum(dZ, keepdims=True, axis=1)
+        dW = (1. / m) * np.dot(dZ, A_prev.T) + (self.lamda * W)/m
+        db = (1. / m) * np.sum(dZ, keepdims=True, axis=1)
         dA_prev = np.dot(W.T, dZ)
 
         return dA_prev, dW, db
 
-    def backword_prop(self, dAL, cache, activation):
+    def backward_prop(self, dAL, cache, activation):
         linear_cache, activation_cache = cache
 
         if activation == "sigmoid":
@@ -91,23 +103,23 @@ class DNN:
         else:
             raise Exception("Invalid Activation")
 
-        dA_prev, dW, db = self.linear_backword(dZ, linear_cache)
+        dA_prev, dW, db = self.linear_backward(dZ, linear_cache)
         return dA_prev, dW, db
 
-    def dnn_backword_prop(self, AL, Y, caches):
+    def dnn_backward_prop(self, AL, Y, caches):
         grads = {}
         L = len(caches)
         Y = Y.reshape(AL.shape)
 
         dAL = - (np.divide(Y, AL) - np.divide((1 - Y), (1 - AL)))
         current_cache = caches[L - 1]
-        grads["dA" + str(L - 1)], grads["dW" + str(L)], grads["db" + str(L)] = self.backword_prop(
+        grads["dA" + str(L - 1)], grads["dW" + str(L)], grads["db" + str(L)] = self.backward_prop(
             dAL, current_cache, "sigmoid")
         for layer in reversed(range(L - 1)):
             current_cache = caches[layer]
 
             grads["dA" + str(layer)], grads["dW" + str(layer + 1)], grads[
-                "db" + str(layer + 1)] = self.backword_prop(grads["dA" + str(layer + 1)],
+                "db" + str(layer + 1)] = self.backward_prop(grads["dA" + str(layer + 1)],
                                                             current_cache, "relu")
         return grads
 
@@ -127,7 +139,7 @@ class DNN:
 
             cost = self.compute_cost(AL, self.train_y)
 
-            grads = self.dnn_backword_prop(AL, self.train_y, caches)
+            grads = self.dnn_backward_prop(AL, self.train_y, caches)
 
             param = self.update_parameters(parameters, grads)
 
