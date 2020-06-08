@@ -5,7 +5,7 @@ train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.005, epoch=2500, lamda=0.7):
+    def __init__(self, learning_rate=0.005, epoch=2000, lamda=0.9):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
@@ -87,7 +87,7 @@ class DNN:
         A_prev, W, b = cache
         m = A_prev.shape[1]
 
-        dW = (1. / m) * np.dot(dZ, A_prev.T) + (self.lamda * W)/m
+        dW = (1. / m) * np.dot(dZ, A_prev.T) + (self.lamda * W) / m
         db = (1. / m) * np.sum(dZ, keepdims=True, axis=1)
         dA_prev = np.dot(W.T, dZ)
 
@@ -137,16 +137,16 @@ class DNN:
         for i in range(self.epoch):
             AL, caches = self.dnn_forward_prop(self.train_x, parameters)
 
-            cost = self.compute_cost(AL, self.train_y)
+            cost = self.compute_cost_with_regularization(parameters, AL, self.train_y)
 
             grads = self.dnn_backward_prop(AL, self.train_y, caches)
 
-            param = self.update_parameters(parameters, grads)
+            parameters = self.update_parameters(parameters, grads)
 
             if not (i % 100):
                 print("Cost", cost)
 
-        return param
+        return parameters
 
     def predict(self, X, y, param):
         m = X.shape[1]
