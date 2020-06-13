@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import h5py
 
 
@@ -67,3 +68,28 @@ def load_data():
     test_set_y_orig = test_set_y_orig.reshape((1, test_set_y_orig.shape[0]))
 
     return train_set_x_orig, train_set_y_orig, test_set_x_orig, test_set_y_orig, classes
+
+
+def generate_mini_batches(X, Y, batch_size, seed=0):
+    np.random.seed(seed)
+    m = X.shape[1]
+    mini_batches = []
+
+    perm = np.random.permutation(m)
+    X_shuffled = X[:, perm]
+    Y_shuffled = Y[:, perm]
+
+    num_of_mini_batches_complete = math.floor(m / batch_size)
+    for i in range(num_of_mini_batches_complete):
+        mini_batch_X = X_shuffled[:, i * batch_size:(i + 1) * batch_size]
+        mini_batch_Y = Y_shuffled[:, i * batch_size:(i + 1) * batch_size].reshape(Y.shape[0],
+                                                                                  batch_size)
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch)
+
+    if m % batch_size != 0:
+        mini_batch_X = X_shuffled[:, num_of_mini_batches_complete * batch_size:]
+        mini_batch_Y = Y_shuffled[:, num_of_mini_batches_complete * batch_size:]
+        mini_batch = (mini_batch_X, mini_batch_Y)
+        mini_batches.append(mini_batch)
+    return mini_batches
