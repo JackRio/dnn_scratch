@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 from app.utils_dnn import load_data, clean_data, relu, sigmoid, sigmoid_backward, relu_backward
 
 train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
@@ -22,7 +23,6 @@ class DNN:
         self.lamda = lamda
 
     def initialize_param(self):
-        np.random.seed(1)
         parameters = {}
         for layer in range(1, len(self.layer_dims)):
             parameters['W' + str(layer)] = np.random.randn(
@@ -51,7 +51,6 @@ class DNN:
             raise Exception("Invalid Activation")
 
         # Adding dropout
-        np.random.seed(1)
         D = np.random.rand(A.shape[0], A.shape[1])
         D = (D < keep_prob).astype(int)
         A = np.multiply(A, D)
@@ -191,9 +190,17 @@ class DNN:
 
 
 if __name__ == "__main__":
-    dnn = DNN(epoch=1500, keep_probs=[1, 0.8, 0.8, 0.6], learning_rate=0.01, lamda=0.01,
-              layer_dims=[20, 10, 7, 1])
+    dnn = DNN(epoch=100, keep_probs=[1, 0.8, 0.6], learning_rate=0.01, lamda=0.01,
+              layer_dims=[20, 10, 1])
     model_params = dnn.fit()
+
+    with open("output/output.model", "wb") as model:
+        pickle.dump(model_params, model)
+    model.close()
+
+    # with open("output/output.model", "rb") as model:
+    #     model_params = pickle.load(model)
+    # model.close()
 
     print("Train Accuracy")
     dnn.predict(dnn.train_x, dnn.train_y, model_params)

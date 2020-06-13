@@ -16,7 +16,8 @@ Features yet to be implemented.
   8. Mini Batch
   9. Exponentially Weighted Average
   10. Bias Correction in Exponentially Weighted Average
-  11. Gradient Descent with Momentum
-  12. Adam Optimiser
-  13. Learning Rate Decay
-  14. Other Activation Function Support
+  11. RMSprop
+  12. Gradient Descent with Momentum
+  13. Adam Optimiser
+  14. Learning Rate Decay
+  15. Other Activation Function Support
