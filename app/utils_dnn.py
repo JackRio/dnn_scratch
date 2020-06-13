@@ -9,6 +9,8 @@ def relu(Z):
 
 
 def sigmoid(Z):
+    Z = np.array(Z)
+
     A = 1 / (1 + np.exp(-Z))
     return A, Z
 
