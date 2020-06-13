@@ -1,23 +1,28 @@
 import numpy as np
+import pickle
 from app.utils_dnn import load_data, clean_data, relu, sigmoid, sigmoid_backward, relu_backward
 
 train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.075, epoch=1500, lamda=0.7, layer_dims=None):
+    def __init__(self, keep_probs=None, learning_rate=0.075, epoch=1500, lamda=0.7,
+                 layer_dims=None):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
 
-        # 4-layer model (Input + 3 Hidden + Output)
         self.layer_dims = [self.train_x.shape[0]] + layer_dims
+
+        if keep_probs:
+            self.keep_probs = keep_probs
+        else:
+            self.keep_probs = np.ones((len(self.layer_dims) - 1)).astype(int)
 
         self.learning_rate = learning_rate
         self.epoch = epoch
         self.lamda = lamda
 
     def initialize_param(self):
-        np.random.seed(1)
         parameters = {}
         for layer in range(1, len(self.layer_dims)):
             parameters['W' + str(layer)] = np.random.randn(
@@ -31,14 +36,13 @@ class DNN:
         return parameters
 
     @staticmethod
-    def linear_forward(A_prev, W, b):
-
+    def linear_forward(A_prev, W, b, D_prev):
         Z = np.dot(W, A_prev) + b
-        cache = (A_prev, W, b)
+        cache = (A_prev, W, b, D_prev)
         return Z, cache
 
-    def linear_activation_forward(self, A_prev, W, b, activation):
-        Z, linear_cache = self.linear_forward(A_prev, W, b)
+    def linear_activation_forward(self, A_prev, W, b, keep_prob, D_prev, activation):
+        Z, linear_cache = self.linear_forward(A_prev, W, b, D_prev)
         if activation == "relu":
             A, activation_cache = relu(Z)
         elif activation == "sigmoid":
@@ -46,20 +50,34 @@ class DNN:
         else:
             raise Exception("Invalid Activation")
 
+        # Adding dropout
+        D = np.random.rand(A.shape[0], A.shape[1])
+        D = (D < keep_prob).astype(int)
+        A = np.multiply(A, D)
+        A = A / keep_prob
+
         cache = (linear_cache, activation_cache)
-        return A, cache
+        return A, D, cache
 
     def dnn_forward_prop(self, X, param):
         A = X
+        D = np.random.rand(A.shape[0], A.shape[1])
+        D = (D < self.keep_probs[0]).astype(int)
+        A = np.multiply(A, D)
+        A = A / self.keep_probs[0]
+
         caches = []
 
         for layer in range(1, (len(self.layer_dims) - 1)):
             A_prev = A
-            A, cache = self.linear_activation_forward(A_prev, param["W" + str(layer)],
-                                                      param["b" + str(layer)], "relu")
+            D_prev = D
+            A, D, cache = self.linear_activation_forward(A_prev, param["W" + str(layer)],
+                                                         param["b" + str(layer)],
+                                                         self.keep_probs[layer], D_prev, "relu")
             caches.append(cache)
-        AL, cache = self.linear_activation_forward(A, param["W" + str(layer + 1)],
-                                                   param["b" + str(layer + 1)], "sigmoid")
+        AL, D, cache = self.linear_activation_forward(A, param["W" + str(layer + 1)],
+                                                      param["b" + str(layer + 1)], 1, D,
+                                                      "sigmoid")
         caches.append(cache)
         return AL, caches
 
@@ -83,17 +101,20 @@ class DNN:
 
         return cross_entropy_cost + regularize_cost
 
-    def linear_backward(self, dZ, cache):
-        A_prev, W, b = cache
+    def linear_backward(self, dZ, cache, keep_prob):
+        A_prev, W, b, D = cache
         m = A_prev.shape[1]
 
         dW = (1. / m) * np.dot(dZ, A_prev.T) + (self.lamda * W) / m
         db = (1. / m) * np.sum(dZ, keepdims=True, axis=1)
         dA_prev = np.dot(W.T, dZ)
 
+        # Implementing dropout
+        dA_prev = np.multiply(dA_prev, D)
+        dA_prev /= keep_prob
         return dA_prev, dW, db
 
-    def backward_prop(self, dAL, cache, activation):
+    def backward_prop(self, dAL, cache, activation, keep_prob):
         linear_cache, activation_cache = cache
 
         if activation == "sigmoid":
@@ -103,7 +124,7 @@ class DNN:
         else:
             raise Exception("Invalid Activation")
 
-        dA_prev, dW, db = self.linear_backward(dZ, linear_cache)
+        dA_prev, dW, db = self.linear_backward(dZ, linear_cache, keep_prob)
         return dA_prev, dW, db
 
     def dnn_backward_prop(self, AL, Y, caches):
@@ -114,13 +135,14 @@ class DNN:
         dAL = - (np.divide(Y, AL) - np.divide((1 - Y), (1 - AL)))
         current_cache = caches[L - 1]
         grads["dA" + str(L - 1)], grads["dW" + str(L)], grads["db" + str(L)] = self.backward_prop(
-            dAL, current_cache, "sigmoid")
+            dAL, current_cache, "sigmoid", 1)
+
         for layer in reversed(range(L - 1)):
             current_cache = caches[layer]
-
             grads["dA" + str(layer)], grads["dW" + str(layer + 1)], grads[
                 "db" + str(layer + 1)] = self.backward_prop(grads["dA" + str(layer + 1)],
-                                                            current_cache, "relu")
+                                                            current_cache, "relu",
+                                                            self.keep_probs[layer])
         return grads
 
     def update_parameters(self, param, grads):
@@ -168,8 +190,17 @@ class DNN:
 
 
 if __name__ == "__main__":
-    dnn = DNN(epoch=1500, learning_rate=0.01, lamda=0.01, layer_dims=[20, 10, 7, 1])
+    dnn = DNN(epoch=100, keep_probs=[1, 0.8, 0.6], learning_rate=0.01, lamda=0.01,
+              layer_dims=[20, 10, 1])
     model_params = dnn.fit()
+
+    with open("output/output.model", "wb") as model:
+        pickle.dump(model_params, model)
+    model.close()
+
+    # with open("output/output.model", "rb") as model:
+    #     model_params = pickle.load(model)
+    # model.close()
 
     print("Train Accuracy")
     dnn.predict(dnn.train_x, dnn.train_y, model_params)
