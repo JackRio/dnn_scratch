@@ -1,13 +1,16 @@
-import numpy as np
-from app.utils_dnn import load_data, clean_data, relu, sigmoid, sigmoid_backward, relu_backward
+from app.utils_dnn import *
 
 train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
 
 
 class DNN:
-    def __init__(self, learning_rate=0.075, epoch=1500, lamda=0.7, layer_dims=None):
+    def __init__(self, learning_rate=0.075, epoch=1500, lamda=0.7, beta=0.9, layer_dims=None,
+                 batch_size=64, seed=0):
         self.train_x, self.test_x = clean_data(train_x_orig, test_x_orig)
         self.train_y, self.test_y = train_y, test_y
+
+        self.batches = self.mini_batches = generate_mini_batches(self.train_x, self.train_y,
+                                                                 batch_size, seed)
 
         # 4-layer model (Input + 3 Hidden + Output)
         self.layer_dims = [self.train_x.shape[0]] + layer_dims
@@ -15,6 +18,7 @@ class DNN:
         self.learning_rate = learning_rate
         self.epoch = epoch
         self.lamda = lamda
+        self.beta = beta
 
     def initialize_param(self):
         np.random.seed(1)
@@ -29,6 +33,15 @@ class DNN:
                 self.layer_dims[layer], self.layer_dims[layer - 1]))
             assert (parameters['b' + str(layer)].shape == (self.layer_dims[layer], 1))
         return parameters
+
+    @staticmethod
+    def initialize_momentum(param):
+        L = len(param) // 2
+        v = {}
+        for layer in range(L):
+            v["dW" + str(layer + 1)] = np.zeros(param["W" + str(layer + 1)].shape)
+            v["db" + str(layer + 1)] = np.zeros(param["b" + str(layer + 1)].shape)
+        return v
 
     @staticmethod
     def linear_forward(A_prev, W, b):
@@ -131,18 +144,39 @@ class DNN:
             param["b" + str(layer + 1)] -= grads["db" + str(layer + 1)] * self.learning_rate
         return param
 
+    def update_parameters_with_momentum(self, param, grads, v):
+        L = len(self.layer_dims) - 1
+
+        for layer in range(L):
+            v["dW" + str(layer + 1)] = self.beta * v["dW" + str(layer + 1)] + (1 - self.beta) * \
+                                       grads["dW" + str(layer + 1)]
+            v["db" + str(layer + 1)] = self.beta * v["db" + str(layer + 1)] + (1 - self.beta) * \
+                                       grads["db" + str(layer + 1)]
+
+            param["W" + str(layer + 1)] -= v["dW" + str(layer + 1)] * self.learning_rate
+            param["b" + str(layer + 1)] -= v["db" + str(layer + 1)] * self.learning_rate
+        return param
+
     def fit(self):
         parameters = self.initialize_param()
+        if self.beta:
+            grad_momentum = self.initialize_momentum(parameters)
 
         for i in range(self.epoch):
-            AL, caches = self.dnn_forward_prop(self.train_x, parameters)
+            for j in range(len(self.batches)):
+                self.train_x, self.train_y = self.batches[j]
+                AL, caches = self.dnn_forward_prop(self.train_x, parameters)
 
-            cost = self.compute_cost_with_regularization(parameters, AL, self.train_y)
+                cost = self.compute_cost_with_regularization(parameters, AL, self.train_y)
 
-            grads = self.dnn_backward_prop(AL, self.train_y, caches)
+                grads = self.dnn_backward_prop(AL, self.train_y, caches)
 
-            parameters = self.update_parameters(parameters, grads)
-
+                # Gradient Descent with momentum if beta has any value
+                if self.beta:
+                    parameters = self.update_parameters_with_momentum(parameters, grads,
+                                                                      grad_momentum)
+                else:
+                    parameters = self.update_parameters(parameters, grads)
             if not (i % 100):
                 print(f"Cost after {i} iteration", cost)
 
@@ -168,7 +202,8 @@ class DNN:
 
 
 if __name__ == "__main__":
-    dnn = DNN(epoch=1500, learning_rate=0.01, lamda=0.01, layer_dims=[20, 10, 7, 1])
+    dnn = DNN(epoch=1500, learning_rate=0.01, lamda=0.01, beta=0.9, layer_dims=[20, 10, 7, 1],
+              batch_size=256, seed=0)
     model_params = dnn.fit()
 
     print("Train Accuracy")
